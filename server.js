@@ -1,20 +1,27 @@
-const WebSocket = require("ws");
+const express = require("express");
+const bodyParser = require("body-parser");
+const { JSONRPCServer } = require("json-rpc-2.0");
 
-const server = new WebSocket.Server({ port: 3000 });
+const server = new JSONRPCServer();
 
-const methods = {
-  add: (a, b) => a + b,
-  subtract: (a, b) => a - b,
-};
+// Define a method that takes two numbers and returns their sum
+server.addMethod("add", ({ a, b }) => a + b);
 
-server.on("connection", (client) => {
-  client.on("message", (message) => {
-    const [methodName, callId, ...params] = JSON.parse(message);
-    if (methods[methodName]) {
-      const result = methods[methodName](...params);
-      client.send(JSON.stringify([callId, result]));
+const app = express();
+app.use(bodyParser.json());
+
+// Handle JSON-RPC requests at the /rpc endpoint
+app.post("/rpc", (req, res) => {
+  const jsonRPCRequest = req.body;
+  server.receive(jsonRPCRequest).then((jsonRPCResponse) => {
+    if (jsonRPCResponse) {
+      res.json(jsonRPCResponse);
     } else {
-      client.send(JSON.stringify([callId, null])); // Method not found
+      res.sendStatus(204);
     }
   });
+});
+
+app.listen(3000, () => {
+  console.log("JSON-RPC server listening on port 3000");
 });
